@@ -21,6 +21,7 @@
 #import "CDVWKWebViewUIDelegate.h"
 #import "CDVWKProcessPoolFactory.h"
 #import <Cordova/NSDictionary+CordovaPreferences.h>
+#import <objc/runtime.h>
 
 #import <objc/message.h>
 
@@ -102,6 +103,7 @@
 
     if (IsAtLeastiOSVersion(@"9.0") && [self.viewController isKindOfClass:[CDVViewController class]]) {
         wkWebView.customUserAgent = ((CDVViewController*) self.viewController).userAgent;
+       [self keyboardDisplayDoesNotRequireUserAction];
     }
 
     if ([self.viewController conformsToProtocol:@protocol(WKUIDelegate)]) {
@@ -393,6 +395,17 @@ static void * KVOContext = &KVOContext;
         NSLog(@"%@", [errorUrl absoluteString]);
         [theWebView loadRequest:[NSURLRequest requestWithURL:errorUrl]];
     }
+}
+
+- (void) keyboardDisplayDoesNotRequireUserAction {
+  SEL sel = sel_getUid("_startAssistingNode:userIsInteracting:blurPreviousNode:userObject:");
+  Class WKContentView = NSClassFromString(@"WKContentView");
+  Method method = class_getInstanceMethod(WKContentView, sel);
+  IMP originalImp = method_getImplementation(method);
+  IMP imp = imp_implementationWithBlock(^void(id me, void* arg0, BOOL arg1, BOOL arg2, id arg3) {
+    ((void (*)(id, SEL, void*, BOOL, BOOL, id))originalImp)(me, sel, arg0, TRUE, arg2, arg3);
+  });
+  method_setImplementation(method, imp);
 }
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
